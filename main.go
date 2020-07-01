@@ -2,15 +2,16 @@ package main
 
 import (
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
+	"log"
 	"math"
+	"net/http"
 	"os"
 	"strconv"
 	"sync"
-	"net/http"
-	"encoding/json"
+
 	"github.com/gorilla/mux"
-	"log"
 )
 
 const (
@@ -78,7 +79,7 @@ func FloatToString(input_num float64) string {
 
 func leer_dataset() {
 
-	csvFile, err := os.Open("dataset_N.csv")
+	csvFile, err := os.Open("Datasets/dataset_deteccion.csv")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -236,7 +237,6 @@ func PredecirEndPoint(w http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(w).Encode(resultData)
 }
 
-
 //metodo que predice el tipo de cancer dependeiendo de los vecinos mas cercanos
 func predecir() int {
 	prediccion := 0
@@ -263,12 +263,10 @@ func main() {
 	KNN(prueba)
 	fmt.Println(predecir())
 
-
 	router := mux.NewRouter()
 	// endpoints
 	router.HandleFunc("/KNN", PredecirEndPoint).Methods("POST", "OPTIONS")
 	http.ListenAndServe(":3000", router)
 	log.Fatal(http.ListenAndServe(":3000", router))
-
 
 }
