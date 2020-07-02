@@ -251,7 +251,7 @@ func dist_eucl_deteccion(per1 Persona_Covid, per2 Persona_Covid, i int) {
 
 func dist_eucl_gruporiesgo(per1 Persona_GrupoRiesgo, per2 Persona_GrupoRiesgo, i int) {
 	distancia := 0.0
-	distancia = math.Pow((per1.Edad-per2.Edad)*10, 2) +
+	distancia = math.Pow(per1.Edad-per2.Edad, 2) +
 		math.Pow(per1.Sexo-per2.Sexo, 2) +
 		math.Pow(per1.Insuf_resp-per2.Insuf_resp, 2) +
 		math.Pow(per1.Neumonia-per2.Neumonia, 2) +
