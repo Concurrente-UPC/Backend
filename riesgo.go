@@ -15,38 +15,27 @@ import (
 )
 
 const (
-	cols = 300
-	rows = 8
+	cols = 100
+	rows = 10
 	K    = 10
 )
 
-//Tiredness
-//Dry-Cough
-//Difficulty-in-Breathing
-//Sore-Throat
-//None_Sympton
-//Pains
-//Nasal-Congestion
-//Runny-Nose
-//Diarrhea
-//None_Experiencing
-//Age_0-9
-//Age_10-19
-//Age_20-24
-//Age_25-59
-//Age_60+
-//Gender_Female
-//Gender_Male
-//Contact_Dont-Know
-//Contact_no
-//Contact_yes
-//Results
+//Edad
+//Sexo
+//Insuf_resp
+//Neumonia
+//Hipertension
+//Asma
+//Obesidad
+//Diabetes
+//Enf_cardiacas
+//Diagnostico
 
-type Persona struct {
+type Persona_GrupoRiesgo struct {
 	Edad          float64 `json:"edad"`
 	Sexo          float64 `json:"sexo"`
 	Insuf_resp    float64 `json:"insuf_resp"`
-	Neumonia      float64 `json:"insuf_resp"`
+	Neumonia      float64 `json:"neumonia"`
 	Hipertension  float64 `json:"hipertension"`
 	Asma          float64 `json:"asma"`
 	Obesidad      float64 `json:"obesidad"`
@@ -55,17 +44,17 @@ type Persona struct {
 	Diagnostico   float64 `json:"diagnostico"`
 }
 
-var listPersonas [cols]Persona
-var distancias [cols]float64
-var vecinos [K]Persona
-var prueba Persona
+var listPersonas_GR [cols]Persona_GrupoRiesgo
+var distancias_GR [cols]float64
+var vecinos_GR [K]Persona_GrupoRiesgo
+var prueba Persona_GrupoRiesgo
 
 func FloatToString(input_num float64) string {
 	// para convertir float a string
 	return strconv.FormatFloat(input_num, 'f', 6, 64)
 }
 
-func leer_dataset() {
+func leer_dataset_gruporiesgo() {
 
 	csvFile, err := os.Open("Datasets/dataset_gruporiesgo.csv")
 	if err != nil {
@@ -90,7 +79,7 @@ func leer_dataset() {
 		enfcardi, _ := strconv.ParseFloat(line[8], 64)
 		diagnos, _ := strconv.ParseFloat(line[9], 64)
 
-		per := Persona{
+		per := Persona_GrupoRiesgo{
 			Edad:          age,
 			Sexo:          sex,
 			Insuf_resp:    insufresp,
@@ -102,7 +91,7 @@ func leer_dataset() {
 			Enf_cardiacas: enfcardi,
 			Diagnostico:   diagnos,
 		}
-		listPersonas[i] = per
+		listPersonas_GR[i] = per
 		fmt.Println(FloatToString(per.Edad) + " " + FloatToString(per.Sexo) +
 			" " + FloatToString(per.Insuf_resp) + " " + FloatToString(per.Neumonia) +
 			" " + FloatToString(per.Hipertension) +
@@ -112,9 +101,9 @@ func leer_dataset() {
 	}
 }
 
-func dist_eucl(per1 Persona, per2 Persona, i int) {
+func dist_eucl_gruporiesgo(per1 Persona_GrupoRiesgo, per2 Persona_GrupoRiesgo, i int) {
 	distancia := 0.0
-	distancia = math.Pow(per1.Edad-per2.Edad, 2) +
+	distancia = math.Pow((per1.Edad-per2.Edad)*10, 2) +
 		math.Pow(per1.Sexo-per2.Sexo, 2) +
 		math.Pow(per1.Insuf_resp-per2.Insuf_resp, 2) +
 		math.Pow(per1.Neumonia-per2.Neumonia, 2) +
@@ -124,24 +113,25 @@ func dist_eucl(per1 Persona, per2 Persona, i int) {
 		math.Pow(per1.Diabetes-per2.Diabetes, 2) +
 		math.Pow(per1.Enf_cardiacas-per2.Enf_cardiacas, 2)
 
-	distancias[i] = distancia
+	distancias_GR[i] = distancia
+	println(distancia)
 }
 
 type ResultData struct {
 	Result int `json:"result"`
 }
 
-//KNN : Encuetra los vecinos mas cercanos
-func KNN(prueba Persona) {
-	ch := make(chan int, len(listPersonas))
+//KNN_gruporiesgo : Encuetra los vecinos_GR mas cercanos
+func KNN_gruporiesgo(prueba Persona_GrupoRiesgo) {
+	ch := make(chan int, len(listPersonas_GR))
 	var wg sync.WaitGroup
-	wg.Add(len(listPersonas))
+	wg.Add(len(listPersonas_GR))
 	var index [cols]int
-	for i := 0; i < len(listPersonas); i++ {
+	for i := 0; i < len(listPersonas_GR); i++ {
 		ch <- i
 		go func() {
 			p := <-ch
-			dist_eucl(prueba, listPersonas[p], p)
+			dist_eucl_gruporiesgo(prueba, listPersonas_GR[p], p)
 			wg.Done()
 		}()
 
@@ -150,46 +140,47 @@ func KNN(prueba Persona) {
 	wg.Wait()
 	tmp := 0.0
 	tmp2 := 0
-	for x := 0; x < len(distancias); x++ {
-		for y := 0; y < len(distancias); y++ {
-			if distancias[x] < distancias[y] {
-				tmp = distancias[y]
-				distancias[y] = distancias[x]
-				distancias[x] = tmp
+	for x := 0; x < len(distancias_GR); x++ {
+		for y := 0; y < len(distancias_GR); y++ {
+			if distancias_GR[x] < distancias_GR[y] {
+				tmp = distancias_GR[y]
+				distancias_GR[y] = distancias_GR[x]
+				distancias_GR[x] = tmp
 				tmp2 = index[y]
 				index[y] = index[x]
 				index[x] = tmp2
 			}
 		}
 	}
-	for i := 0; i < len(vecinos); i++ {
-		vecinos[i] = listPersonas[index[i]]
+	for i := 0; i < len(vecinos_GR); i++ {
+		vecinos_GR[i] = listPersonas_GR[index[i]]
 	}
 
 }
 
-func PredecirEndPoint(w http.ResponseWriter, request *http.Request) {
+func GrupoRiesgoEndPoint(w http.ResponseWriter, request *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	var person Persona
+	var person Persona_GrupoRiesgo
 	_ = json.NewDecoder(request.Body).Decode(&person)
-
+	person.Edad = (person.Edad - 96) / (96 - 19)
+	print(person.Edad)
 	//----------------
-	//--algoritmo---
-	KNN(person)
-	var result = predecir()
+	//---algoritmo----
+	KNN_gruporiesgo(person)
+	var result = definir_gruporiesgo()
 	var resultData ResultData
 	resultData.Result = result
 	//dato devuelto
 	json.NewEncoder(w).Encode(resultData)
 }
 
-//metodo que predice si pertence al grupo de riesgo de los vecinos mas cercanos
-func predecir() int {
+//metodo que predice si pertence al grupo de riesgo de los vecinos_GR mas cercanos
+func definir_gruporiesgo() int {
 	prediccion := 0
 	var contadorM int
 	var contadorB int
-	for _, vecino := range vecinos {
+	for _, vecino := range vecinos_GR {
 		if vecino.Diagnostico == 1 {
 			contadorM++
 		} else {
@@ -203,14 +194,14 @@ func predecir() int {
 }
 
 func main() {
-	leer_dataset()
-	prueba := Persona{0.1169, 1, 0, 0, 0, 0, 0, 0, 0, 0}
-	KNN(prueba)
-	fmt.Println(predecir())
+	leer_dataset_gruporiesgo()
+	prueba := Persona_GrupoRiesgo{0.5844, 1, 0, 0, 0, 0, 0, 0, 0, 1}
+	KNN_gruporiesgo(prueba)
+	fmt.Println(definir_gruporiesgo())
 
 	router := mux.NewRouter()
 	//endpoints
-	router.HandleFunc("/KNN", PredecirEndPoint).Methods("POST", "OPTIONS")
+	router.HandleFunc("/KNN_gruporiesgo", GrupoRiesgoEndPoint).Methods("POST", "OPTIONS")
 	http.ListenAndServe(":3000", router)
 	log.Fatal(http.ListenAndServe(":3000", router))
 
