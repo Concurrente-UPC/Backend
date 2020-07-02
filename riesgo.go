@@ -17,7 +17,7 @@ import (
 const (
 	cols = 100
 	rows = 10
-	K    = 10
+	K    = 5
 )
 
 //Edad
@@ -47,7 +47,7 @@ type Persona_GrupoRiesgo struct {
 var listPersonas_GR [cols]Persona_GrupoRiesgo
 var distancias_GR [cols]float64
 var vecinos_GR [K]Persona_GrupoRiesgo
-var prueba Persona_GrupoRiesgo
+var prueba_gruporiesgo Persona_GrupoRiesgo
 
 func FloatToString(input_num float64) string {
 	// para convertir float a string
@@ -103,7 +103,7 @@ func leer_dataset_gruporiesgo() {
 
 func dist_eucl_gruporiesgo(per1 Persona_GrupoRiesgo, per2 Persona_GrupoRiesgo, i int) {
 	distancia := 0.0
-	distancia = math.Pow((per1.Edad-per2.Edad)*10, 2) +
+	distancia = math.Pow(per1.Edad-per2.Edad, 2) +
 		math.Pow(per1.Sexo-per2.Sexo, 2) +
 		math.Pow(per1.Insuf_resp-per2.Insuf_resp, 2) +
 		math.Pow(per1.Neumonia-per2.Neumonia, 2) +
@@ -122,7 +122,7 @@ type ResultData struct {
 }
 
 //KNN_gruporiesgo : Encuetra los vecinos_GR mas cercanos
-func KNN_gruporiesgo(prueba Persona_GrupoRiesgo) {
+func KNN_gruporiesgo(prueba_gruporiesgo Persona_GrupoRiesgo) {
 	ch := make(chan int, len(listPersonas_GR))
 	var wg sync.WaitGroup
 	wg.Add(len(listPersonas_GR))
@@ -131,7 +131,7 @@ func KNN_gruporiesgo(prueba Persona_GrupoRiesgo) {
 		ch <- i
 		go func() {
 			p := <-ch
-			dist_eucl_gruporiesgo(prueba, listPersonas_GR[p], p)
+			dist_eucl_gruporiesgo(prueba_gruporiesgo, listPersonas_GR[p], p)
 			wg.Done()
 		}()
 
@@ -195,8 +195,9 @@ func definir_gruporiesgo() int {
 
 func main() {
 	leer_dataset_gruporiesgo()
-	prueba := Persona_GrupoRiesgo{0.5844, 1, 0, 0, 0, 0, 0, 0, 0, 1}
-	KNN_gruporiesgo(prueba)
+
+	prueba_gruporiesgo := Persona_GrupoRiesgo{0.5844, 1, 0, 0, 0, 0, 0, 0, 0, 1}
+	KNN_gruporiesgo(prueba_gruporiesgo)
 	fmt.Println(definir_gruporiesgo())
 
 	router := mux.NewRouter()

@@ -17,7 +17,7 @@ import (
 const (
 	cols = 300
 	rows = 21
-	K    = 10
+	K    = 5
 )
 
 //Tiredness
