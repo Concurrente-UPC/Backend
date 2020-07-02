@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -9,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/gorilla/mux"
@@ -19,28 +22,12 @@ const (
 	rows = 21
 	K    = 5
 )
+var serverPort = ""
+var clientPorts []string
 
-//Tiredness
-//Dry-Cough
-//Difficulty-in-Breathing
-//Sore-Throat
-//None_Sympton
-//Pains
-//Nasal-Congestion
-//Runny-Nose
-//Diarrhea
-//None_Experiencing
-//Age_0-9
-//Age_10-19
-//Age_20-24
-//Age_25-59
-//Age_60+
-//Gender_Female
-//Gender_Male
-//Contact_Dont-Know
-//Contact_no
-//Contact_yes
-//Results
+type Response struct{
+	result int `json:"result"`
+}
 
 type Persona_Covid struct {
 	Fever                   float64 `json:"fever"`
@@ -376,6 +363,74 @@ func GrupoRiesgoEndPoint(w http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(w).Encode(resultData)
 }
 
+func PredecirEndPointServer(w http.ResponseWriter, request *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	var person Persona_Covid
+	_ = json.NewDecoder(request.Body).Decode(&person)
+
+	//----------------
+	//--algoritmo---
+	var cont = 0
+	for _,port := range clientPorts{
+		requestBody,_ := json.Marshal(person)
+		req, _ := http.NewRequest("POST", "http://localhost"+port+"/KNN_deteccion", bytes.NewBuffer(requestBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{}
+		resp, _ := client.Do(req)
+
+		var resultBody ResultData
+
+		json.NewDecoder(resp.Body).Decode(&resultBody)
+		if resultBody.Result == 1{
+			cont += 1
+		}
+		resp.Body.Close()
+	}
+	var result = 0
+	if cont > len(clientPorts)/2{
+		result = 1
+	}
+	var resultData ResultData
+	resultData.Result = result
+	//dato devuelto
+	json.NewEncoder(w).Encode(resultData)
+}
+
+func GrupoRiesgoEndPointServer(w http.ResponseWriter, request *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+	var person Persona_GrupoRiesgo
+	_ = json.NewDecoder(request.Body).Decode(&person)
+	//----------------
+	//---algoritmo----
+	var cont = 0
+	for _,port := range clientPorts{
+		requestBody,_ := json.Marshal(person)
+		req, _ := http.NewRequest("POST", "http://localhost"+port+"/KNN_deteccion", bytes.NewBuffer(requestBody))
+		req.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{}
+		resp, _ := client.Do(req)
+		var resultBody ResultData
+		json.NewDecoder(resp.Body).Decode(&resultBody)
+		if resultBody.Result == 1{
+			cont += 1
+		}
+		resp.Body.Close()
+	}
+	var result = 0
+	if cont > len(clientPorts)/2{
+		result = 1
+	}
+
+	var resultData ResultData
+	resultData.Result = result
+	//dato devuelto
+	json.NewEncoder(w).Encode(resultData)
+}
+
 //metodo que predice si estas contagiado de covid dependeiendo de los vecinos_PC mas cercanos
 func predecir_contagio() int {
 	prediccion := 0
@@ -412,19 +467,47 @@ func definir_gruporiesgo() int {
 }
 
 func main() {
+	var wgx sync.WaitGroup
+	wgx.Add(1)
 	leer_dataset_deteccion()
 	leer_dataset_gruporiesgo()
-	/*prueba_Covid := Persona_Covid{1.000000, 1.000000, 1.000000, 1.000000, 0.000000, 0.000000, 0.000000,
-		1.000000, 1.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.000000,
-		1.000000, 1.000000, 0.000000, 0.000000, 0.000000, 1.000000, 1.000000}
-	KNN_deteccion(prueba_Covid)
-	fmt.Println(predecir_contagio())*/
 
-	router := mux.NewRouter()
-	// endpoints
-	router.HandleFunc("/KNN_deteccion", PredecirEndPoint).Methods("POST", "OPTIONS")
-	router.HandleFunc("/KNN_gruporiesgo", GrupoRiesgoEndPoint).Methods("POST", "OPTIONS")
-	http.ListenAndServe(":3000", router)
-	log.Fatal(http.ListenAndServe(":3000", router))
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Ingrese el puerto del server -> ")
+	text, _ := reader.ReadString('\n')
+	port := ":"+text
+	port = strings.TrimSuffix(port, "\n")
+	serverPort = port
+	fmt.Print("Ingrese la cantidad de nodos -> ")
+	text, _ = reader.ReadString('\n')
+	text = strings.TrimSuffix(text, "\n")
+	N,_ := strconv.Atoi(text)
+	fmt.Println(N)
 
+	for i:=0;i<N;i++{
+		fmt.Print("Ingrese puerto del nodo ",i+1," -> ")
+		text, _ = reader.ReadString('\n')
+		port = ":"+text
+		port = strings.TrimSuffix(port, "\n")
+		clientPorts = append(clientPorts,port)
+		router := mux.NewRouter()
+		// endpoints
+		router.HandleFunc("/KNN_deteccion", PredecirEndPoint).Methods("POST", "OPTIONS")
+		router.HandleFunc("/KNN_gruporiesgo", GrupoRiesgoEndPoint).Methods("POST", "OPTIONS")
+		go func() {
+			fmt.Println(port)
+			s := http.Server{Addr: port, Handler: router}
+			_ = s.ListenAndServe()
+			log.Fatal(s.ListenAndServe())
+		}()
+	}
+	go func() {
+		router := mux.NewRouter()
+		router.HandleFunc("/KNN_deteccion", PredecirEndPointServer).Methods("POST", "OPTIONS")
+		router.HandleFunc("/KNN_gruporiesgo", GrupoRiesgoEndPointServer).Methods("POST", "OPTIONS")
+		s := http.Server{Addr: serverPort, Handler: router}
+		_ = s.ListenAndServe()
+		log.Fatal(s.ListenAndServe())
+	}()
+	wgx.Wait()
 }
